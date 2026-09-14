@@ -1,6 +1,9 @@
 [submodule "objective-git"]
 	path = External/objective-git
-	url = git@github.com:gitx/objective-git.git
+	# TEMPORARY: pointed at the fork's universal-deps branch (closed PR
+	# gitx/objective-git#100) while it's unmerged. Revert to
+	# git@github.com:gitx/objective-git.git once that work lands upstream.
+	url = https://github.com/faisal/objective-git.git
 [submodule "Sparkle"]
 	path = External/Sparkle
 	url = git@github.com:sparkle-project/Sparkle.git

@@ -5,6 +5,7 @@
 # Changing a command here means changing it there too, and the other way round.
 #
 #   deps           "pre build"
+#   deps-universal "pre build (universal)"
 #   unit-test      "Run unit tests"
 #   ui-test        "Run tests"
 #   archive        "Build project"
@@ -114,7 +115,7 @@ CHECK_AGAIN = status=$$?; \
 	exit $$status
 
 .PHONY: help git-submodule-sync git-submodule-check framework-check \
-	framework-clean format format-check format-warning deps pre-build bootstrap \
+	framework-clean format format-check format-warning deps deps-universal pre-build bootstrap \
 	build unit-test test \
 	ui-test all-tests archive build-project app smoke-test run dmg map \
 	export-signed \
@@ -242,6 +243,15 @@ format-warning: ## Report lines this branch changed that clang-format would refo
 deps: ## Build the objective-git and libgit2 dependencies
 	@test -x External/objective-git/script/bootstrap || { echo 'the submodules are not checked out: run `make bootstrap`' >&2; exit 1; }
 	cd External/objective-git && script/bootstrap && script/update_libgit2
+
+# Builds libssh2/openssl/libgit2 as universal (x86_64+arm64) static libs
+# instead of whichever single arch the host happens to be, so `archive` can
+# produce one universal GitX.app. Needs a native arm64 Homebrew at
+# /opt/homebrew and a Rosetta x86_64 Homebrew at /usr/local, each with the
+# required tools installed -- see External/objective-git's script/bootstrap.
+deps-universal: ## Build the objective-git and libgit2 dependencies as universal static libs
+	@test -x External/objective-git/script/bootstrap || { echo 'the submodules are not checked out: run `make bootstrap`' >&2; exit 1; }
+	cd External/objective-git && UNIVERSAL_BUILD=1 script/bootstrap && UNIVERSAL_BUILD=1 script/update_libgit2
 
 # CI gets the submodules from actions/checkout and so calls `deps` on its own;
 # a fresh local clone needs both halves.
