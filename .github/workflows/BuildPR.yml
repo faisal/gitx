@@ -427,6 +427,8 @@ jobs:
     env:
       variableSet: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
     runs-on: macos-26
+    outputs:
+      sparkle_signature: ${{ steps.sparkle.outputs.sparkle_signature }}
     steps:
       - name: ls Xcode
         run: ls -la /Applications/Xcode*
@@ -571,6 +573,14 @@ jobs:
           name: sparkle_signature.txt
           path: sparkle_signature.txt
           retention-days: 90
+      - name: Export Sparkle signature
+        id: sparkle
+        if: ${{ env.variableSet != '' }}
+        run: |
+          # sign_update prints: sparkle:edSignature="<signature>" length="<n>"
+          SIG=$(sed -n 's/.*sparkle:edSignature="\([^"]*\)".*/\1/p' sparkle_signature.txt)
+          test -n "$SIG" || { echo "no edSignature in sparkle_signature.txt" >&2; exit 1; }
+          echo "sparkle_signature=$SIG" >> "$GITHUB_OUTPUT"
       - name: Upload dmg
         uses: actions/upload-artifact@v7
         if: ${{ success() }}
@@ -637,6 +647,20 @@ jobs:
             GitX.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Add Sparkle signature to the release notes
+        # The appcast template reads this marker from release.body to fill
+        # the enclosure's sparkle:edSignature. Skipped when no signature was
+        # produced (secrets unset), so the release is still published.
+        if: ${{ needs.build-gitx-universal.outputs.sparkle_signature != '' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SPARKLE_SIGNATURE: ${{ needs.build-gitx-universal.outputs.sparkle_signature }}
+          TAG: ${{ steps.tagger.outputs.tag }}
+        run: |
+          gh release view "$TAG" --json body --jq .body > notes.md
+          printf '\n\n<!-- sparkle-edSignature: %s -->\n' "$SPARKLE_SIGNATURE" >> notes.md
+          gh release edit "$TAG" --notes-file notes.md
 
       - name: update Sparkle
         if: ${{ env.PRE_RELEASE == 'false' }}

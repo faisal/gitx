@@ -11,25 +11,36 @@ include_prereleases: false
             {% if release.prerelease and page.include_prereleases != true %}{% continue %}{% endif %}
 
             {% assign version = release.tag_name %}
-            {% assign short_version = release.tag_name %}
+            {% assign asset_url = "" %}
+            {% assign asset_size = "" %}
+            {% for asset in release.assets %}
+                {% if asset.name == "GitX.dmg" %}
+                    {% assign asset_url = asset.browser_download_url %}
+                    {% assign asset_size = asset.size %}
+                {% endif %}
+            {% endfor %}
 
+            {% comment %} The release job writes the EdDSA signature into the release notes as a marker line. {% endcomment %}
+            {% assign signature_parts = release.body | split: "<!-- sparkle-edSignature: " %}
+            {% assign signature_end = signature_parts[1] | split: " -->" %}
+            {% assign signature = signature_end[0] %}
+
+            {% if asset_url != "" and signature != nil and signature != "" %}
             <item>
                 <title>{{ release.name }}</title>
-                <description><![CDATA[
-                    <p>
-                        At this time, automatic updates are not working, and you
-                        will have to <strong>download and install this update
-                        yourself</strong> from the
-                        <a href="{{ release.html_url }}">GitX release page.</a>
-                    </p>
-
-                    {{ release.body | markdownify }}]]></description>
+                <description><![CDATA[{{ release.body | markdownify }}]]></description>
                 <pubDate>{{ release.published_at | date_to_rfc822 }}</pubDate>
                 <sparkle:version>{{ version }}</sparkle:version>
                 <sparkle:shortVersionString>{{ version }}</sparkle:shortVersionString>
-                <sparkle:informationalUpdate />
+                <enclosure
+                    url="{{ asset_url }}"
+                    length="{{ asset_size }}"
+                    type="application/octet-stream"
+                    sparkle:edSignature="{{ signature }}"
+                />
                 <link>{{ release.html_url }}</link>
             </item>
+            {% endif %}
         {% endfor %}
     </channel>
 </rss>
